@@ -609,6 +609,27 @@
       margin-bottom: 24px;
       border-radius: 16px;
     }
+    .toast-message {
+  position: fixed;
+  bottom: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: green;
+  color: #fff;
+  padding: 10px 18px;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 500;
+  z-index: 99999;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.3s ease, transform 0.3s ease;
+}
+
+.toast-message.show {
+  opacity: 1;
+  transform: translateX(-50%) translateY(-5px);
+}
 /*Install Promt */
     .install-prompt {
       position:;
@@ -1098,36 +1119,57 @@
     localStorage.setItem('bookmarkedPosts', JSON.stringify(bookmarkedPosts));
     renderPosts();
   }
+function scrollToSharedPost() {
+  const urlParams = new URLSearchParams(window.location.search);
+  const postId = urlParams.get('post');
 
-  // Share Function
-  function handleShare(postId, title) {
-    const postUrl = `${window.location.origin}${window.location.pathname}?post=${postId}`;
-    
-    if (navigator.share) {
-      // Mobile & modern browser support
-      navigator.share({
-        title: "HSTU Diary - " + title,
-        text: title,
-        url: postUrl
-      }).then(() => {
-        console.log("Shared successfully!");
-      }).catch(err => console.log("Share failed:", err));
-    } else {
-      // Fallback for browsers without Web Share API
-      navigator.clipboard.writeText(postUrl).then(() => {
-        alert("Link copied to clipboard!");
-      }).catch(err => {
-        // Fallback if clipboard API is not available
-        const textArea = document.createElement('textarea');
-        textArea.value = postUrl;
-        document.body.appendChild(textArea);
-        textArea.select();
-        document.execCommand('copy');
-        document.body.removeChild(textArea);
-        alert("Link copied to clipboard!");
-      });
-    }
+  if (postId) {
+    // একটু delay দিয়ে যাতে DOM রেন্ডার হয়ে যায়
+    setTimeout(() => {
+      const target = document.querySelector(`.post-card[data-post-id="${postId}"]`);
+      if (target) {
+        target.scrollIntoView({ behavior: "smooth", block: "center" });
+
+        // Highlight effect
+        target.style.transition = "box-shadow 0.5s ease, transform 0.5s ease";
+        target.style.boxShadow = "0 0 30px 5px rgba(255, 215, 0, 0.9)";
+        target.style.transform = "scale(1.02)";
+
+        // 15 সেকেন্ড পর স্বাভাবিক অবস্থায় ফিরে যাবে
+        setTimeout(() => {
+          target.style.boxShadow = "";
+          target.style.transform = "";
+        }, 15000);
+      }
+    }, 500); // delay = half second
   }
+}
+// Share Function
+function handleShare(postId, title) {
+  const postUrl = `${window.location.origin}${window.location.pathname}?post=${postId}`;
+  
+  if (navigator.share) {
+    navigator.share({
+      title: "HSTU Diary - " + title,
+      text: title,
+      url: postUrl
+    }).then(() => {
+      showToast("Shared successfully!");
+    }).catch(err => console.log("Share failed:", err));
+  } else {
+    navigator.clipboard.writeText(postUrl).then(() => {
+      showToast("Link copied to clipboard!");
+    }).catch(err => {
+      const textArea = document.createElement('textarea');
+      textArea.value = postUrl;
+      document.body.appendChild(textArea);
+      textArea.select();
+      document.execCommand('copy');
+      document.body.removeChild(textArea);
+      showToast("Link copied to clipboard!");
+    });
+  }
+}
 
   // Initialize
   document.addEventListener('DOMContentLoaded', () => {
@@ -1346,7 +1388,8 @@
     const searchTerm = searchInput.value.toLowerCase();
     const now = new Date();
     const twoHoursAgo = new Date(now.getTime() - (2 * 60 * 60 * 1000));
-    
+   // At the very end of renderPosts()
+scrollToSharedPost(); 
     // Get the newest posts from the last 2 hours
     const newPosts = posts
       .filter(post => new Date(post.createdAt) > twoHoursAgo)
@@ -1595,6 +1638,24 @@ ${post.type === 'news' ? '<i class="bi bi-newspaper"></i>' : ''}
   }
 
   // Helper function
+  function showToast(msg) {
+  const toast = document.createElement("div");
+  toast.className = "toast-message";
+  toast.innerText = msg;
+
+  document.body.appendChild(toast);
+
+  // show
+  setTimeout(() => {
+    toast.classList.add("show");
+  }, 50);
+
+  // hide after 2.5s
+  setTimeout(() => {
+    toast.classList.remove("show");
+    setTimeout(() => toast.remove(), 300);
+  }, 2500);
+}
   function formatTimeAgo(date) {
     const now = new Date();
     const seconds = Math.floor((now - date) / 1000);
